@@ -80,7 +80,7 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // ✅ إدخال الطلب
+    // ✅ إدخال الطلب 
     const orderResult: QueryResult<{
       status: string; id: number 
 }> = await client.query(
@@ -112,9 +112,9 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
 
 
     
-    await broadcastNewOrder(orderId); // ⬅️ إرسال تفاصيل الطلب
+    // await broadcastNewOrder(orderId); // ⬅️ إرسال تفاصيل الطلب
 
-    await incrementTotalOrders();
+    // await incrementTotalOrders();
 
     return res.status(201).json({
       success: true,
