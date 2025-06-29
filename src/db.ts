@@ -1,10 +1,12 @@
-// src/db.ts
 import { Pool } from "pg";
 
 export const pool = new Pool({
-  user: "postgres",          // اسم المستخدم لقاعدة البيانات
-  host: "localhost",         // غالباً localhost
-  database: "RawnecFood",    // اسم قاعدة البيانات (عدله حسب ما أنشأته)
-  password: "admin",     // ضع كلمة السر الخاصة بك
-  port: 5432                 // منفذ PostgreSQL (الافتراضي 5432)
+  user: "houssam",
+  host: "dpg-d1gpmu7fte5s738vghrg-a.oregon-postgres.render.com",
+  database: "ronk_db",
+  password: "nqYeITUUQSR9Mt81tK4czXf7WKRFEvBD",
+  port: 5432,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
