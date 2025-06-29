@@ -1,11 +1,12 @@
 {
   "name": "exprsjs",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "nodemon"
+    "dev": "nodemon",
+    "postinstall": "npm run build"
   },
   "keywords": [],
   "author": "",
