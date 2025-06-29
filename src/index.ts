@@ -11,20 +11,22 @@ import ordersRoutes from "./routes/orders.routes";
 import adminRoutes from "./routes/admin.routes";
 import complaintsRoutes from "./routes/complaints.routes";
 import deliveryRoutes from "./routes/delivery.routes";
-
-import "./cronJobs/deleteOldOrders";
 import statesRoutes from "./routes/states.routes";
 import adminFoodsRoutes from "./routes/admin.foods.routes";
 import userManagementRoutes from "./routes/user.mangment.routes";
 
+// Jobs
+import "./cronJobs/deleteOldOrders";
+
 const app = express();
-const server = http.createServer(app); // مهم: هذا ما نمرره إلى WebSocket
+const server = http.createServer(app); // تمرير السيرفر لـ WebSocket
 
-app.use(compression());
-app.use(cors({ origin: "http://localhost:5174" }));
+// ✅ السماح للطلبات من أي دومين (مطلوب للفرونت من Render أو محلي)
+app.use(cors());
 app.use(express.json());
+app.use(compression());
 
-// استخدام الراوترات
+// ✅ استخدام الراوترات
 app.use("/foods", foodRoutes);
 app.use("/auth", authRoutes);
 app.use("/orders", ordersRoutes);
@@ -35,10 +37,11 @@ app.use("/states", statesRoutes);
 app.use("/admin/foods", adminFoodsRoutes);
 app.use("/user/management", userManagementRoutes);
 
-// WebSocket
+// ✅ تفعيل WebSocket
 setupWebSocket(server);
 
-const PORT = 3002;
+// ✅ تشغيل السيرفر
+const PORT = process.env.PORT || 3002;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
