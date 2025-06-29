@@ -1,11 +1,14 @@
 import { Pool } from "pg";
+import dotenv from "dotenv";
+
+dotenv.config(); // تحميل متغيرات البيئة من .env عند التطوير المحلي فقط
 
 export const pool = new Pool({
-  user: "houssam",
-  host: "dpg-d1gpmu7fte5s738vghrg-a.oregon-postgres.render.com",
-  database: "ronk_db",
-  password: "nqYeITUUQSR9Mt81tK4czXf7WKRFEvBD",
-  port: 5432,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: Number(process.env.DB_PORT),
   ssl: {
     rejectUnauthorized: false
   }
