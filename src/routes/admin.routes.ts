@@ -1,7 +1,7 @@
 import express, { Router, Request, Response } from "express";
 import { pool } from "../db";
 import { broadcastNewOrder, broadcastOrderStatus } from "../websocket";
-import { incrementTotalOrders } from "../lib/statesRestornt";
+import { incrementTotalOrders, incrementTotalSales } from "../lib/statesRestornt";
 
 const router = Router();
 
@@ -35,6 +35,20 @@ router.put("/orders/:id", async (req: Request, res: Response): Promise<any> => {
     broadcastOrderStatus(orderId, newStatus);
     if (newStatus === "قادمة في الطريق") {
       incrementTotalOrders();
+    }
+    if (newStatus === "تم التوصيل") {
+      const result = await pool.query(
+  `
+  SELECT SUM(oi.quantity * f.price) AS total_price
+  FROM order_items oi
+  JOIN foods f ON oi.food_id = f.id
+  WHERE oi.order_id = $1
+  `,
+  [orderId]
+);
+
+   const totalPrice = result.rows[0].total_price;
+      incrementTotalSales(totalPrice);
     }
     // ✅ إذا كانت الحالة الجديدة "تم الموافقة"، جلب تفاصيل الطلب وإرساله عبر WebSocket
   
