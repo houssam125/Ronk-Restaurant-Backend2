@@ -33,7 +33,9 @@ router.put("/orders/:id", async (req: Request, res: Response): Promise<any> => {
 
     // إرسال التحديث عبر WebSocket للجميع
     broadcastOrderStatus(orderId, newStatus);
-   incrementTotalOrders()
+    if (newStatus === "قادمة في الطريق") {
+      incrementTotalOrders();
+    }
     // ✅ إذا كانت الحالة الجديدة "تم الموافقة"، جلب تفاصيل الطلب وإرساله عبر WebSocket
   
 
