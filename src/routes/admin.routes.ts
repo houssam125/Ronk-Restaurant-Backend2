@@ -5,7 +5,7 @@ import { incrementTotalOrders, incrementTotalSales } from "../lib/statesRestornt
 
 const router = Router();
 
-// تحديث حالة الطلب حسب ID
+// ✅ تحديث حالة الطلب
 router.put("/orders/:id", async (req: Request, res: Response): Promise<any> => {
   const orderId = Number(req.params.id);
   const { newStatus } = req.body;
@@ -15,47 +15,35 @@ router.put("/orders/:id", async (req: Request, res: Response): Promise<any> => {
   }
 
   try {
-    // تحقق من وجود الطلب
-    const existingOrder = await pool.query(
-      "SELECT id FROM orders WHERE id = $1",
-      [orderId]
-    );
-
+    const existingOrder = await pool.query("SELECT id FROM orders WHERE id = $1", [orderId]);
     if (existingOrder.rowCount === 0) {
       return res.status(404).json({ error: "❌ الطلب غير موجود" });
     }
 
-    // تحديث الحالة
-    await pool.query(
-      "UPDATE orders SET status = $1 WHERE id = $2",
-      [newStatus, orderId]
-    );
+    await pool.query("UPDATE orders SET status = $1 WHERE id = $2", [newStatus, orderId]);
 
-    // إرسال التحديث عبر WebSocket للجميع
     broadcastOrderStatus(orderId, newStatus);
+
     if (newStatus === "قادمة في الطريق") {
       incrementTotalOrders();
     }
+
     if (newStatus === "تم التوصيل") {
       const result = await pool.query(
-  `
-  SELECT SUM(oi.quantity * f.price) AS total_price
-  FROM order_items oi
-  JOIN foods f ON oi.food_id = f.id
-  WHERE oi.order_id = $1
-  `,
-  [orderId]
-);
+        `
+        SELECT SUM(oi.quantity * f.price) AS total_price
+        FROM order_items oi
+        JOIN foods f ON oi.food_id = f.id
+        WHERE oi.order_id = $1
+        `,
+        [orderId]
+      );
 
-   const totalPrice : number = result.rows[0].total_price;
+      const totalPrice = result.rows[0].total_price ?? 0; // 🔒 معالجة null
       incrementTotalSales(totalPrice);
     }
-    // ✅ إذا كانت الحالة الجديدة "تم الموافقة"، جلب تفاصيل الطلب وإرساله عبر WebSocket
-  
 
-    broadcastNewOrder(orderId); // ⬅️ إرسال تفاصيل الطلب
-      
-    
+    broadcastNewOrder(orderId);
 
     res.status(200).json({ message: "✅ تم تحديث حالة الطلب" });
   } catch (err) {
@@ -64,7 +52,7 @@ router.put("/orders/:id", async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-
+// ✅ جلب جميع الطلبات "قيد المعالجة"
 router.get("/orders", async (_req: Request, res: Response) => {
   try {
     const result = await pool.query(`
@@ -78,10 +66,10 @@ router.get("/orders", async (_req: Request, res: Response) => {
         json_agg(
           json_build_object(
             'food_id', f.id,
-            'title', f.title,             -- ← اسم المأكول
+            'title', f.title,
             'quantity', oi.quantity,
-            'unit_price', f.price,        -- ← السعر الفردي
-            'price', f.price * oi.quantity -- ← السعر الإجمالي لكل عنصر
+            'unit_price', f.price,
+            'price', f.price * oi.quantity
           )
         ) AS items,
         SUM(f.price * oi.quantity) AS total_price

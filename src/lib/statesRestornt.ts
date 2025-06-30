@@ -20,27 +20,29 @@ export async function incrementTotalOrders() {
     console.error("❌ فشل في تحديث عدد الطلبات:", err);
   }
 }
-
-
 export async function incrementTotalSales(value: number) {
   try {
-    await pool.query(
+    const result = await pool.query(
       `UPDATE restaurant_stats 
        SET total_sales = total_sales + $1, last_updated = CURRENT_TIMESTAMP 
-       WHERE id = 1`,
+       WHERE id = 1
+       RETURNING total_sales`,
       [value]
     );
-    console.log("✅ تم إضافة إلى المبيعات");
-    const result = await pool.query(`
-      SELECT total_sales
-      FROM restaurant_stats
-      WHERE id = 1
-    `);
-    changeRestaurantStatus(result.rows[0].total_sales, "total_sales");
+
+    if (result.rows.length > 0) {
+      console.log(`✅ تم تحديث إجمالي المبيعات إلى ${result.rows[0].total_sales}`);
+      changeRestaurantStatus(result.rows[0].total_sales, "total_sales");
+    } else {
+      console.warn("⚠️ لم يتم العثور على السطر لإجمالي المبيعات");
+    }
+
   } catch (err) {
     console.error("❌ فشل في تحديث المبيعات:", err);
   }
 }
+
+
 
 export async function incrementTotalMenuItems() {
   try {
