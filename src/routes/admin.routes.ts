@@ -47,7 +47,7 @@ router.put("/orders/:id", async (req: Request, res: Response): Promise<any> => {
   [orderId]
 );
 
-   const totalPrice = result.rows[0].total_price;
+   const totalPrice : number = result.rows[0].total_price;
       incrementTotalSales(totalPrice);
     }
     // ✅ إذا كانت الحالة الجديدة "تم الموافقة"، جلب تفاصيل الطلب وإرساله عبر WebSocket
