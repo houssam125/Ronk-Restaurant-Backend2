@@ -15,16 +15,18 @@ const orders_routes_1 = __importDefault(require("./routes/orders.routes"));
 const admin_routes_1 = __importDefault(require("./routes/admin.routes"));
 const complaints_routes_1 = __importDefault(require("./routes/complaints.routes"));
 const delivery_routes_1 = __importDefault(require("./routes/delivery.routes"));
-require("./cronJobs/deleteOldOrders");
 const states_routes_1 = __importDefault(require("./routes/states.routes"));
 const admin_foods_routes_1 = __importDefault(require("./routes/admin.foods.routes"));
 const user_mangment_routes_1 = __importDefault(require("./routes/user.mangment.routes"));
+// Jobs
+require("./cronJobs/deleteOldOrders");
 const app = (0, express_1.default)();
-const server = http_1.default.createServer(app); // مهم: هذا ما نمرره إلى WebSocket
-app.use((0, compression_1.default)());
-app.use((0, cors_1.default)({ origin: "http://localhost:5174" }));
+const server = http_1.default.createServer(app); // تمرير السيرفر لـ WebSocket
+// ✅ السماح للطلبات من أي دومين (مطلوب للفرونت من Render أو محلي)
+app.use((0, cors_1.default)());
 app.use(express_1.default.json());
-// استخدام الراوترات
+app.use((0, compression_1.default)());
+// ✅ استخدام الراوترات
 app.use("/foods", food_routes_1.default);
 app.use("/auth", auth_routes_1.default);
 app.use("/orders", orders_routes_1.default);
@@ -34,9 +36,10 @@ app.use("/delivery", delivery_routes_1.default);
 app.use("/states", states_routes_1.default);
 app.use("/admin/foods", admin_foods_routes_1.default);
 app.use("/user/management", user_mangment_routes_1.default);
-// WebSocket
+// ✅ تفعيل WebSocket
 (0, websocket_1.setupWebSocket)(server);
-const PORT = 3002;
+// ✅ تشغيل السيرفر
+const PORT = process.env.PORT || 3002;
 server.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

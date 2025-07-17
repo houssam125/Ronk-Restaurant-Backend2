@@ -33,16 +33,17 @@ function incrementTotalOrders() {
 function incrementTotalSales(value) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            yield db_1.pool.query(`UPDATE restaurant_stats 
-       SET total_sales = total_sales + $1, last_updated = CURRENT_TIMESTAMP 
-       WHERE id = 1`, [value]);
-            console.log("✅ تم إضافة إلى المبيعات");
-            const result = yield db_1.pool.query(`
-      SELECT total_sales
-      FROM restaurant_stats
-      WHERE id = 1
-    `);
-            (0, websocket_1.changeRestaurantStatus)(result.rows[0].total_sales, "total_sales");
+            const result = yield db_1.pool.query(`UPDATE restaurant_stats 
+   SET total_sales = total_sales + $1 
+   WHERE id = 1
+   RETURNING total_sales`, [value]);
+            if (result.rows.length > 0) {
+                console.log(`✅ تم تحديث إجمالي المبيعات إلى ${result.rows[0].total_sales}`);
+                (0, websocket_1.changeRestaurantStatus)(result.rows[0].total_sales, "total_sales");
+            }
+            else {
+                console.warn("⚠️ لم يتم العثور على السطر لإجمالي المبيعات");
+            }
         }
         catch (err) {
             console.error("❌ فشل في تحديث المبيعات:", err);

@@ -14,26 +14,41 @@ const db_1 = require("../db");
 const websocket_1 = require("../websocket");
 const statesRestornt_1 = require("../lib/statesRestornt");
 const router = (0, express_1.Router)();
-// تحديث حالة الطلب حسب ID
+// ✅ تحديث حالة الطلب
 router.put("/orders/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     const orderId = Number(req.params.id);
-    const { newStatus } = req.body;
+    const { newStatus, delivery_price, estimated_delivery_time } = req.body;
+    console.log(req.body);
     if (!newStatus) {
         return res.status(400).json({ error: "❌ الحالة الجديدة مطلوبة" });
     }
     try {
-        // تحقق من وجود الطلب
         const existingOrder = yield db_1.pool.query("SELECT id FROM orders WHERE id = $1", [orderId]);
         if (existingOrder.rowCount === 0) {
             return res.status(404).json({ error: "❌ الطلب غير موجود" });
         }
-        // تحديث الحالة
-        yield db_1.pool.query("UPDATE orders SET status = $1 WHERE id = $2", [newStatus, orderId]);
-        // إرسال التحديث عبر WebSocket للجميع
+        if (delivery_price || estimated_delivery_time) {
+            yield db_1.pool.query("UPDATE orders SET status = $1 , delivery_price = $3, estimated_delivery_time = $4 WHERE id = $2", [newStatus, orderId, delivery_price, estimated_delivery_time]);
+        }
+        else {
+            yield db_1.pool.query("UPDATE orders SET status = $1  WHERE id = $2", [newStatus, orderId]);
+        }
         (0, websocket_1.broadcastOrderStatus)(orderId, newStatus);
-        (0, statesRestornt_1.incrementTotalOrders)();
-        // ✅ إذا كانت الحالة الجديدة "تم الموافقة"، جلب تفاصيل الطلب وإرساله عبر WebSocket
-        (0, websocket_1.broadcastNewOrder)(orderId); // ⬅️ إرسال تفاصيل الطلب
+        if (newStatus === "قادمة في الطريق") {
+            (0, statesRestornt_1.incrementTotalOrders)();
+        }
+        if (newStatus === "تم التوصيل") {
+            const result = yield db_1.pool.query(`
+        SELECT SUM(oi.quantity * f.price) AS total_price
+        FROM order_items oi
+        JOIN foods f ON oi.food_id = f.id
+        WHERE oi.order_id = $1
+        `, [orderId]);
+            const totalPrice = (_a = result.rows[0].total_price) !== null && _a !== void 0 ? _a : 0; // 🔒 معالجة null
+            (0, statesRestornt_1.incrementTotalSales)(totalPrice);
+        }
+        (0, websocket_1.broadcastNewOrder)(orderId);
         res.status(200).json({ message: "✅ تم تحديث حالة الطلب" });
     }
     catch (err) {
@@ -41,6 +56,7 @@ router.put("/orders/:id", (req, res) => __awaiter(void 0, void 0, void 0, functi
         res.status(500).json({ error: "حدث خطأ أثناء تحديث الطلب" });
     }
 }));
+// ✅ جلب جميع الطلبات "قيد المعالجة"
 router.get("/orders", (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const result = yield db_1.pool.query(`
@@ -48,16 +64,17 @@ router.get("/orders", (_req, res) => __awaiter(void 0, void 0, void 0, function*
         o.id AS order_id,
         o.delivery_link,
         o.created_at,
+        o.notes,
         u.fname,
         u.lname,
         u.phone,
         json_agg(
           json_build_object(
             'food_id', f.id,
-            'title', f.title,             -- ← اسم المأكول
+            'title', f.title,
             'quantity', oi.quantity,
-            'unit_price', f.price,        -- ← السعر الفردي
-            'price', f.price * oi.quantity -- ← السعر الإجمالي لكل عنصر
+            'unit_price', f.price,
+            'price', f.price * oi.quantity
           )
         ) AS items,
         SUM(f.price * oi.quantity) AS total_price

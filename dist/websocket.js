@@ -24,14 +24,25 @@ const setupWebSocket = (server) => {
 };
 exports.setupWebSocket = setupWebSocket;
 // ✅ دالة إرسال الحالة الجديدة للطلب (تحديث حالة)
-const broadcastOrderStatus = (orderId, newStatus) => {
+const broadcastOrderStatus = (orderId, newStatus) => __awaiter(void 0, void 0, void 0, function* () {
+    let delivery_price = null;
+    let estimated_delivery_time = null;
+    if (newStatus === "قادمة في الطريق" || newStatus === "تم التوصيل") {
+        const result = yield db_1.pool.query(`SELECT delivery_price, estimated_delivery_time FROM orders WHERE id = $1`, [orderId]);
+        if (result.rows.length > 0) {
+            delivery_price = result.rows[0].delivery_price;
+            estimated_delivery_time = result.rows[0].estimated_delivery_time;
+        }
+    }
     const message = JSON.stringify({
         type: "order_status_update",
         orderId,
         newStatus,
+        delivery_price,
+        estimated_delivery_time,
     });
     sendToAllClients(message);
-};
+});
 exports.broadcastOrderStatus = broadcastOrderStatus;
 const changeRestaurantStatus = (VALUES, attribute) => {
     const message = JSON.stringify({
@@ -50,6 +61,9 @@ const broadcastNewOrder = (orderId) => __awaiter(void 0, void 0, void 0, functio
         o.id AS order_id,
         o.delivery_link,
         o.status,
+        o.delivery_price,
+        o.estimated_delivery_time,
+        o.notes,
         o.created_at,
         u.fname,
         u.lname,
