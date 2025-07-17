@@ -37,15 +37,33 @@ export const setupWebSocket = (server: any) => {
 
 
 // ✅ دالة إرسال الحالة الجديدة للطلب (تحديث حالة)
-export const broadcastOrderStatus = (orderId: number, newStatus: string) => {
+export const broadcastOrderStatus = async (orderId: number, newStatus: string) => {
+  let delivery_price: number | null = null;
+  let estimated_delivery_time: string | null = null;
+
+  if (newStatus === "قادمة في الطريق" || newStatus === "تم التوصيل") {
+    const result = await pool.query(
+      `SELECT delivery_price, estimated_delivery_time FROM orders WHERE id = $1`,
+      [orderId]
+    );
+
+    if (result.rows.length > 0) {
+      delivery_price = result.rows[0].delivery_price;
+      estimated_delivery_time = result.rows[0].estimated_delivery_time;
+    }
+  }
+
   const message = JSON.stringify({
     type: "order_status_update",
     orderId,
     newStatus,
+    delivery_price,
+    estimated_delivery_time,
   });
 
   sendToAllClients(message);
 };
+
 export const changeRestaurantStatus = (VALUES: number, attribute: string) => {
   const message = JSON.stringify({
     type: "restaurant_status_update",
@@ -64,6 +82,9 @@ export const broadcastNewOrder = async (orderId: number) => {
         o.id AS order_id,
         o.delivery_link,
         o.status,
+        o.delivery_price,
+        o.estimated_delivery_time,
+        o.notes,
         o.created_at,
         u.fname,
         u.lname,
@@ -101,7 +122,8 @@ export const broadcastNewOrder = async (orderId: number) => {
       }
       
 
-
+  
+      
 
     const message = JSON.stringify({
       type,

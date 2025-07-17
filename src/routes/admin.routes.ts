@@ -8,7 +8,8 @@ const router = Router();
 // ✅ تحديث حالة الطلب
 router.put("/orders/:id", async (req: Request, res: Response): Promise<any> => {
   const orderId = Number(req.params.id);
-  const { newStatus } = req.body;
+  const { newStatus , delivery_price, estimated_delivery_time } = req.body;
+  console.log(req.body);
 
   if (!newStatus) {
     return res.status(400).json({ error: "❌ الحالة الجديدة مطلوبة" });
@@ -20,7 +21,12 @@ router.put("/orders/:id", async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ error: "❌ الطلب غير موجود" });
     }
 
-    await pool.query("UPDATE orders SET status = $1 WHERE id = $2", [newStatus, orderId]);
+if( delivery_price|| estimated_delivery_time){
+  await pool.query("UPDATE orders SET status = $1 , delivery_price = $3, estimated_delivery_time = $4 WHERE id = $2", [newStatus, orderId, delivery_price, estimated_delivery_time]);
+}else{
+  await pool.query("UPDATE orders SET status = $1  WHERE id = $2", [newStatus, orderId]);
+}
+  
 
     broadcastOrderStatus(orderId, newStatus);
 
@@ -60,6 +66,7 @@ router.get("/orders", async (_req: Request, res: Response) => {
         o.id AS order_id,
         o.delivery_link,
         o.created_at,
+        o.notes,
         u.fname,
         u.lname,
         u.phone,

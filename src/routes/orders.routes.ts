@@ -14,16 +14,17 @@ interface OrderItemInput {
 interface CreateOrderRequestBody {
   user_id?: number;
   delivery_link?: string;
-
+  notes?: string;
   items?: OrderItemInput[];
 }
 
 router.post("/", async (req: Request, res: Response): Promise<any> => {
-  const { user_id, delivery_link , items }: CreateOrderRequestBody = req.body;
+  const { user_id, delivery_link, items, notes }: CreateOrderRequestBody = req.body;
 
-  // ✅ تحقق من صحة البيانات
+  // ✅ التحقق من صحة البيانات
   if (
     typeof user_id !== "number" ||
+    typeof notes !== "string" ||
     typeof delivery_link !== "string" ||
     delivery_link.trim() === "" ||
     !Array.isArray(items) ||
@@ -40,14 +41,14 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
   try {
     await client.query("BEGIN");
 
-    // ✅ تحقق من وجود المستخدم
+    // ✅ التحقق من وجود المستخدم
     const userResult = await client.query("SELECT id FROM users WHERE id = $1", [user_id]);
     if (userResult.rowCount === 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({ success: false, message: "❌ المستخدم غير موجود." });
     }
 
-    // ✅ تحقق من أن كل العناصر تحتوي على بيانات صحيحة
+    // ✅ التحقق من صحة العناصر
     for (const item of items) {
       if (
         typeof item.food_id !== "number" ||
@@ -62,13 +63,12 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
       }
     }
 
-    // ✅ تحقق من أن جميع الـ food_id موجودة في جدول الأطعمة دفعة واحدة
+    // ✅ التحقق من وجود جميع الأطعمة
     const foodIds = items.map((item) => item.food_id);
     const foodRes = await client.query(
       `SELECT id FROM foods WHERE id = ANY($1::int[])`,
       [foodIds]
     );
-
     const existingFoodIds = foodRes.rows.map((row) => row.id);
     const missingFoodIds = foodIds.filter(id => !existingFoodIds.includes(id));
 
@@ -80,16 +80,14 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // ✅ إدخال الطلب 
-    const orderResult: QueryResult<{
-      status: string; id: number 
-}> = await client.query(
+    // ✅ إدخال الطلب مع الحقول الجديدة (nots والمبدئيات)
+    const orderResult: QueryResult<{ id: number }> = await client.query(
       `
-      INSERT INTO orders (user_id, delivery_link)
-      VALUES ($1, $2)
+      INSERT INTO orders (user_id, delivery_link, notes, delivery_price, estimated_delivery_time)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING id
       `,
-      [user_id, delivery_link]
+      [user_id, delivery_link, notes, 0, '00:00:00']
     );
 
     const orderId = orderResult.rows[0].id;
@@ -99,7 +97,6 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
       INSERT INTO order_items (order_id, food_id, quantity)
       VALUES ($1, $2, $3)
     `;
-
     for (const item of items) {
       await client.query(insertItemQuery, [
         orderId,
@@ -110,25 +107,15 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
 
     await client.query("COMMIT");
 
-
-    
-    await broadcastNewOrder(orderId); // ⬅️ إرسال تفاصيل الطلب
-
-    await incrementTotalOrders();
+    await broadcastNewOrder(orderId); // إرسال الطلب بالبث
+    await incrementTotalOrders(); // زيادة العداد
 
     return res.status(201).json({
       success: true,
       message: "✅ تم إنشاء الطلب بنجاح",
       order: orderId,
     });
-    
-   
 
-    
-          
-          
-          
-        
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("❌ خطأ أثناء إنشاء الطلب:", err instanceof Error ? err.message : err);
@@ -141,12 +128,11 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
   }
 });
 
-
+// ✅ عرض طلبات المستخدم
 router.get("/user/:userId", async (req, res) => {
   const userId = req.params.userId;
 
   try {
-    // جلب الطلبات الخاصة بالمستخدم
     const ordersResult = await pool.query(
       `SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
       [userId]
@@ -183,6 +169,5 @@ router.get("/user/:userId", async (req, res) => {
     res.status(500).json({ success: false, message: "خطأ في الخادم الداخلي." });
   }
 });
-
 
 export default router;
